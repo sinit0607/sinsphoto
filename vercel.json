@@ -6,6 +6,7 @@
       "config": {"maxLambdaSize" :  "15mb"}
     }
   ],
+   "rewrites": [{ "source": "/(.*)", "destination": "/" }] ,
   "routes": [
     {
       "src": "/(.*)",
