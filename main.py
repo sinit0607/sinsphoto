@@ -1,5 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 from rembg import remove
 from PIL import Image, ImageFilter, ImageEnhance
 import io
@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 import os
 from uuid import uuid4
-import time
 
 app = FastAPI()
 
@@ -15,8 +14,6 @@ app = FastAPI()
 TEMP_DIR = "temp_images"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# Time in seconds after which files will be deleted (5 minutes)
-FILE_EXPIRATION_TIME = 5 * 60
 
 def detect_main_object(image: Image.Image) -> tuple:
     image_np = np.array(image)
@@ -31,6 +28,7 @@ def detect_main_object(image: Image.Image) -> tuple:
         return (x, y, w, h)
     else:
         return (0, 0, image.size[0], image.size[1])
+
 
 def apply_3d_effect(image: Image.Image) -> Image.Image:
     image_np = np.array(image)
@@ -52,28 +50,6 @@ def apply_3d_effect(image: Image.Image) -> Image.Image:
 
     return final_image
 
-def clean_temp_images():
-    """Function to remove files older than FILE_EXPIRATION_TIME."""
-    now = time.time()
-    for filename in os.listdir(TEMP_DIR):
-        file_path = os.path.join(TEMP_DIR, filename)
-        if os.path.isfile(file_path):
-            file_creation_time = os.path.getctime(file_path)
-            if now - file_creation_time > FILE_EXPIRATION_TIME:
-                os.remove(file_path)
-                print(f"Deleted old file: {file_path}")
-
-@app.on_event("startup")
-async def startup_event():
-    """Startup event to start the background task."""
-    from threading import Timer
-    def set_interval(func, sec):
-        def func_wrapper():
-            set_interval(func, sec)
-            func()
-        t = Timer(sec, func_wrapper)
-        t.start()
-    set_interval(clean_temp_images, FILE_EXPIRATION_TIME)
 
 @app.post("/remove-background/")
 async def remove_background(file: UploadFile = File(...)):
@@ -90,9 +66,10 @@ async def remove_background(file: UploadFile = File(...)):
         removed_background_image.save(file_path, format='PNG')
 
         # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/temp_images/{file_name}"})
+        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.post("/apply-3d-effect/")
 async def create_3d_effect(file: UploadFile = File(...)):
@@ -109,9 +86,10 @@ async def create_3d_effect(file: UploadFile = File(...)):
         image_with_3d.save(file_path, format='PNG')
 
         # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/temp_images/{file_name}"})
+        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.post("/replace-background/")
 async def replace_background(main_image_file: UploadFile = File(...), background_image_file: UploadFile = File(...)):
@@ -135,9 +113,10 @@ async def replace_background(main_image_file: UploadFile = File(...), background
         final_image.save(file_path, format='PNG')
 
         # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/temp_images/{file_name}"})
+        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.post("/enhance-photo/")
 async def enhance_photo(file: UploadFile = File(...), brightness: float = 1.2, contrast: float = 1.2,
@@ -162,9 +141,10 @@ async def enhance_photo(file: UploadFile = File(...), brightness: float = 1.2, c
         enhanced_image.save(file_path, format='PNG')
 
         # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/temp_images/{file_name}"})
+        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
     except Exception as e:
         return {"error": str(e)}
+
 
 # Serve static files from the temporary directory
 @app.get("/temp_images/{file_name}")
@@ -172,6 +152,8 @@ async def get_image(file_name: str):
     file_path = os.path.join(TEMP_DIR, file_name)
     return StreamingResponse(open(file_path, "rb"), media_type="image/png")
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
