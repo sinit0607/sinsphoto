@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import StreamingResponse, Response, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from rembg import remove
 from PIL import Image, ImageFilter, ImageEnhance
 import cv2
@@ -153,7 +153,6 @@ async def get_image(file_name: str):
 
 
 if __name__ == "__main__":
-
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
