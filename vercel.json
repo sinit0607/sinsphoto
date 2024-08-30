@@ -6,11 +6,5 @@
       "config": {"maxLambdaSize" :  "15mb"}
     }
   ],
-   "rewrites": [{ "source": "/(.*)", "destination": "/" }] ,
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/main.py"
-    }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
