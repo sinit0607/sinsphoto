@@ -2,7 +2,6 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 from rembg import remove
 from PIL import Image, ImageFilter, ImageEnhance
-import io
 import cv2
 import numpy as np
 import os
