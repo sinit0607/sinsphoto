@@ -1,17 +1,13 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from rembg import remove
 from PIL import Image, ImageFilter, ImageEnhance
 import cv2
 import numpy as np
-import os
-from uuid import uuid4
+import io
+import base64
 
 app = FastAPI()
-
-# Define a directory to save the temporary images
-TEMP_DIR = "temp_images"
-os.makedirs(TEMP_DIR, exist_ok=True)
 
 
 def detect_main_object(image: Image.Image) -> tuple:
@@ -50,6 +46,15 @@ def apply_3d_effect(image: Image.Image) -> Image.Image:
     return final_image
 
 
+def image_to_base64(image: Image.Image) -> str:
+    # Convert the image to bytes
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+    # Encode to base64
+    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    return img_str
+
+
 @app.post("/remove-background/")
 async def remove_background(file: UploadFile = File(...)):
     try:
@@ -59,13 +64,10 @@ async def remove_background(file: UploadFile = File(...)):
         # Remove the background without adding any shadow
         removed_background_image = remove(image)
 
-        # Save the processed image to a temporary file
-        file_name = f"{uuid4().hex}.png"
-        file_path = os.path.join(TEMP_DIR, file_name)
-        removed_background_image.save(file_path, format='PNG')
+        # Convert the image to a base64 string
+        image_base64 = image_to_base64(removed_background_image)
 
-        # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
+        return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
         return {"error": str(e)}
 
@@ -79,13 +81,10 @@ async def create_3d_effect(file: UploadFile = File(...)):
         # Apply the 3D effect
         image_with_3d = apply_3d_effect(image)
 
-        # Save the processed image to a temporary file
-        file_name = f"{uuid4().hex}.png"
-        file_path = os.path.join(TEMP_DIR, file_name)
-        image_with_3d.save(file_path, format='PNG')
+        # Convert the image to a base64 string
+        image_base64 = image_to_base64(image_with_3d)
 
-        # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
+        return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
         return {"error": str(e)}
 
@@ -106,13 +105,10 @@ async def replace_background(main_image_file: UploadFile = File(...), background
         # Composite the main image onto the new background
         final_image = Image.alpha_composite(background_image, removed_background_image)
 
-        # Save the processed image to a temporary file
-        file_name = f"{uuid4().hex}.png"
-        file_path = os.path.join(TEMP_DIR, file_name)
-        final_image.save(file_path, format='PNG')
+        # Convert the image to a base64 string
+        image_base64 = image_to_base64(final_image)
 
-        # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
+        return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
         return {"error": str(e)}
 
@@ -134,20 +130,9 @@ async def enhance_photo(file: UploadFile = File(...), brightness: float = 1.2, c
         enhancer_sharpness = ImageEnhance.Sharpness(enhanced_image)
         enhanced_image = enhancer_sharpness.enhance(sharpness)
 
-        # Save the processed image to a temporary file
-        file_name = f"{uuid4().hex}.png"
-        file_path = os.path.join(TEMP_DIR, file_name)
-        enhanced_image.save(file_path, format='PNG')
+        # Convert the image to a base64 string
+        image_base64 = image_to_base64(enhanced_image)
 
-        # Return a link to the saved image
-        return JSONResponse({"message": "Success", "url": f"http://localhost:8000/{file_path}"})
+        return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
         return {"error": str(e)}
-
-
-# Serve static files from the temporary directory
-@app.get("/temp_images/{file_name}")
-async def get_image(file_name: str):
-    file_path = os.path.join(TEMP_DIR, file_name)
-    return StreamingResponse(open(file_path, "rb"), media_type="image/png")
-
