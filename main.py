@@ -6,11 +6,15 @@ import cv2
 import numpy as np
 import io
 import base64
+import logging
 
 app = FastAPI()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 def detect_main_object(image: Image.Image) -> tuple:
+    """Detect the main object in the image and return its bounding box."""
     image_np = np.array(image)
     gray = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -24,8 +28,8 @@ def detect_main_object(image: Image.Image) -> tuple:
     else:
         return (0, 0, image.size[0], image.size[1])
 
-
 def apply_3d_effect(image: Image.Image) -> Image.Image:
+    """Apply a 3D effect to the image by creating a shadow."""
     image_np = np.array(image)
     shadow_offset = 10
 
@@ -45,21 +49,22 @@ def apply_3d_effect(image: Image.Image) -> Image.Image:
 
     return final_image
 
-
 def image_to_base64(image: Image.Image) -> str:
-    # Convert the image to bytes
+    """Convert an image to a base64-encoded string."""
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
-    # Encode to base64
     img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return img_str
 
-
 @app.post("/remove-background/")
 async def remove_background(file: UploadFile = File(...)):
+    """Remove the background from the uploaded image and return a base64-encoded result."""
     try:
         # Load the image
         image = Image.open(file.file).convert('RGBA')
+
+        # Log the size of the uploaded file
+        logging.info(f"Processing file {file.filename}")
 
         # Remove the background without adding any shadow
         removed_background_image = remove(image)
@@ -69,11 +74,12 @@ async def remove_background(file: UploadFile = File(...)):
 
         return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
+        logging.error(f"Error processing file {file.filename}: {e}")
         return {"error": str(e)}
-
 
 @app.post("/apply-3d-effect/")
 async def create_3d_effect(file: UploadFile = File(...)):
+    """Apply a 3D effect to the uploaded image and return a base64-encoded result."""
     try:
         # Load the image with transparent background
         image = Image.open(file.file).convert('RGBA')
@@ -86,11 +92,12 @@ async def create_3d_effect(file: UploadFile = File(...)):
 
         return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
+        logging.error(f"Error processing file {file.filename}: {e}")
         return {"error": str(e)}
-
 
 @app.post("/replace-background/")
 async def replace_background(main_image_file: UploadFile = File(...), background_image_file: UploadFile = File(...)):
+    """Replace the background of the main image with a new background and return a base64-encoded result."""
     try:
         # Load the main image and the new background image
         main_image = Image.open(main_image_file.file).convert('RGBA')
@@ -110,12 +117,13 @@ async def replace_background(main_image_file: UploadFile = File(...), background
 
         return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
+        logging.error(f"Error processing files {main_image_file.filename} and {background_image_file.filename}: {e}")
         return {"error": str(e)}
-
 
 @app.post("/enhance-photo/")
 async def enhance_photo(file: UploadFile = File(...), brightness: float = 1.2, contrast: float = 1.2,
                         sharpness: float = 1.5):
+    """Enhance the uploaded image by adjusting brightness, contrast, and sharpness, then return a base64-encoded result."""
     try:
         # Load the image
         image = Image.open(file.file).convert('RGBA')
@@ -135,4 +143,6 @@ async def enhance_photo(file: UploadFile = File(...), brightness: float = 1.2, c
 
         return JSONResponse({"message": "Success", "image_data": image_base64})
     except Exception as e:
+        logging.error(f"Error processing file {file.filename}: {e}")
         return {"error": str(e)}
+
